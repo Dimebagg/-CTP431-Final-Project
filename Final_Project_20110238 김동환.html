@@ -1,0 +1,217 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title> Audio Visualization </title>
+</head>
+<body>		
+	<input id="fileChooseInput" type="file"></input>
+	<button onclick="playSound(myAudioBuffer)">Play</button>
+	<button onclick="stopSound()">Stop</button>	  
+	<button onclick="playSound(Sticky Drama.mp3)">Sample</button>
+	<p><canvas id='wave_view' style="background: white;"></canvas></p>
+
+	<script>	
+	var context;
+	var myAudioBuffer = null;
+	var analyser;
+	
+	var wave_view;
+	var WIDTH = screen.width;
+	var HEIGHT = screen.height;
+	
+	var amp_envelop = 0;
+	
+
+	//
+	window.onload=function(){
+		// file open button
+		var control = document.getElementById("fileChooseInput");
+		control.addEventListener("change", fileChanged, false);
+		
+		// canvas 
+		wave_view = document.getElementById("wave_view");
+		wave_view.width =  WIDTH;
+		wave_view.height = HEIGHT;
+		
+		// create audio context
+		context = new AudioContext();
+		
+		// analyzer
+	    analyser = context.createAnalyser();
+	    analyser.fftSize = 256;
+		analyser.smoothingTimeConstant = 0.9;		
+	}
+	
+	var cnt = 0;
+    var w1 = WIDTH/2;
+    var h1 = HEIGHT/2;
+    var x1 = w1;
+    var y1 = h1;
+	var tx1 = 0;
+    var ty1 = 0;
+    var angle1 = Math.random();
+	var a1 = Math.cos(2*Math.PI*angle1);
+    var b1 = Math.sin(2*Math.PI*angle1); 
+
+    var w2 = WIDTH/2;
+    var h2 = HEIGHT/2;
+    var x2 = w2;
+    var y2 = h2;
+	var tx2 = 0;
+    var ty2 = 0;
+    var angle2 = Math.random();
+	var a2 = Math.cos(2*Math.PI*angle2);
+    var b2 = Math.sin(2*Math.PI*angle2); 
+
+	function draw_wave(timestamp) {
+
+    	var v = 1;
+
+		// 2d canvas context
+		var drawContext = wave_view.getContext('2d');
+		
+		// fill rectangular
+		drawContext.clearRect(0, 0, WIDTH, HEIGHT);
+		//drawContext.fillStyle = 'rgb(0, 0, 0)';
+		//drawContext.fillRect(0, 0, WIDTH, HEIGHT);
+
+		// get samples 
+		var dataArray = new Float32Array(analyser.frequencyBinCount);
+		analyser.getFloatTimeDomainData(dataArray);
+		
+		var amp_scale = 200;
+		var sensitivity = 1;
+		var decay_coef = 0.9;
+
+		var temp = 0;
+		var power = 0;
+		for (var i = 0;i<analyser.frequencyBinCount;i++){
+			avg = 
+			temp += Math.pow(dataArray[i], 2);
+		}
+
+		var avgpwr = temp/analyser.frequencyBinCount;
+
+		var cnt = 0;
+		for (var i = 2;i<analyser.frequencyBinCount-2;i++){
+			if (dataArray[i]>dataArray[i-1] && dataArray[i]>dataArray[i+1] && Math.pow(dataArray[i], 2)>2*avgpwr)
+				cnt++;
+		}
+
+		v = 50*cnt/dataArray.length;
+
+		power = temp/analyser.frequencyBinCount;
+
+		current_level = amp_scale*Math.log(1.0+1.0/sensitivity*power)/Math.log(1.0+1.0/sensitivity);
+
+		if (current_level  > amp_envelop)
+			amp_envelop = current_level;
+		else
+			amp_envelop = decay_coef* amp_envelop;
+		///////////////////////////
+
+		// drawing line setting
+		var max_envelop = 50;	// set the maximum envelope level as we want
+
+		/////// if amp_envelop > max_envelop, red light will be on
+		var colorFactor;
+		if (amp_envelop<max_envelop)
+			colorFactor = Math.round(255*amp_envelop/max_envelop);
+		else
+			colorFactor = 255;
+
+		//draw the circular light, colored by loudness level
+    	
+        x1 = w1 + a1 * tx1;
+        y1 = h1 + b1 * ty1;
+
+    	if (x1>WIDTH-10 || x1<10){
+      		w1 = x1;
+        	tx1 = 0;
+        	a1 = -a1;
+     	 }
+      	if (y1>HEIGHT-10 || y1<10){
+      		h1 = y1;
+        	ty1 = 0;
+        	b1 = -b1;
+      	}
+
+        tx1+=v;
+        ty1+=v;
+
+        x2 = w2 + a2 * tx2;
+        y2 = h2 + b2 * ty2;
+
+    	if (x2>WIDTH-10 || x2<10){
+      		w2 = x2;
+        	tx2 = 0;
+        	a2 = -a2;
+     	 }
+      	if (y2>HEIGHT-10 || y2<10){
+      		h2 = y2;
+        	ty2 = 0;
+        	b2 = -b2;
+      	}
+
+        tx2+=v;
+        ty2+=v;
+
+
+        
+		var ball1 = drawContext.createRadialGradient(x1, y1, 10, x1, y1, amp_envelop+15);
+		ball1.addColorStop(0, 'rgb(' + colorFactor + ', ' + 0 + ', ' + (255-colorFactor) +')');
+		ball1.addColorStop(1, 'black');
+		drawContext.fillStyle = ball1;
+		drawContext.fillRect(0,0,WIDTH,HEIGHT);
+		drawContext.lineWidth = 2;
+		drawContext.strokeStyle = 'rgb(255, 255, 255)';
+
+		var ball2 = drawContext.createRadialGradient(x2, y2, 10, x2, y2, amp_envelop+15);
+		ball2.addColorStop(0, 'rgb(' + colorFactor + ', ' + 0 + ', ' + (255-colorFactor) +')');
+		ball2.addColorStop(1, 'black');
+		drawContext.fillStyle = ball2;
+		drawContext.fillRect(0,0,WIDTH,HEIGHT);
+		drawContext.lineWidth = 2;
+		drawContext.strokeStyle = 'rgb(255, 255, 255)';
+				 
+		// queue for next callback
+		window.requestAnimationFrame(draw_wave);
+	}
+
+	function fileChanged(e){
+		var file = e.target.files[0];
+		var fileReader = new FileReader();
+		fileReader.onload = fileLoaded;
+		fileReader.readAsArrayBuffer(file);
+	}
+
+	function fileLoaded(e){
+	    context.decodeAudioData(e.target.result, function(buffer) {
+	      myAudioBuffer = buffer;
+	    });
+	}
+
+	var source = null;
+	function playSound(anybuffer) {
+	  source = context.createBufferSource();
+	  source.buffer = anybuffer;
+	  source.connect(context.destination);
+	  
+	  // connect source to analyser
+	  source.connect(analyser);
+	  
+	  source.start();
+	  
+	  // visualize audio
+	  draw_wave();
+	}
+
+	function stopSound() {
+	  if (source) {
+	    source.stop();
+	  }
+	}	   	
+	</script>
+</body>
+</html>
